@@ -1,9 +1,9 @@
 import { describe, expect, test, it } from '@jest/globals'
-import { Subject } from "../lib/commons"
+import { CertificateAttributes, CsrAttributes } from "../lib/commons"
 
-describe("test Subject type",()=>{
-    it("Subject instatiation",()=>{
-        const subject = new Subject()
+describe("test CertificateAttributes type",()=>{
+    it("CertificateAttributes void instatiation",()=>{
+        const subject = new CertificateAttributes()
         expect(subject.commonName()).toBeUndefined()
         expect(subject.commonName("ca.mynet.homepc.it")).toBe(subject)
         expect(subject.commonName()).toBe("ca.mynet.homepc.it")
@@ -17,5 +17,39 @@ describe("test Subject type",()=>{
 
         expect(subject.asFogeInput()).toHaveLength(3)
         expect(subject.asFogeInput()[0]).toEqual({name: "commonName", value: "ca.mynet.homepc.it"})
+    })
+    it("CertificateAttributes instatiation by object with get method",()=>{
+        const map = new Map()
+        map.set("commonName","ca.mynet.homepc.it")
+        map.set("C","IT")
+
+        const subject = new CertificateAttributes(map)
+        expect(subject.asFogeInput()[0]).toEqual({name: "commonName", value: "ca.mynet.homepc.it"})
+
+        const issuer = new CertificateAttributes({
+            commonName: "ca.mynet.homepc.it",
+            C: "IT"
+        })
+        expect(issuer.countryName()).toEqual("IT")
+
+    })
+
+    describe("test CsrAttributes type",()=>{
+        it("CsrAttributes void instatiation",()=>{
+            const csrAttr = new CsrAttributes()
+            expect(csrAttr.challengePassword()).toBeUndefined()
+            csrAttr.challengePassword("12345")
+            expect(csrAttr.challengePassword()).toEqual("12345")
+
+        })
+        it("CertificateAttributes instatiation by object with get method",()=>{
+            const map = new Map()
+            map.set("challengePassword","12345")
+            map.set("unstructuredName","Muzio Scevola")
+
+            const csrAttr = new CsrAttributes(map)
+            expect(csrAttr.asFogeInput()[0]).toEqual({ name: "challengePassword", value: "12345"})
+
+        })
     })
 })
