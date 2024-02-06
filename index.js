@@ -1,9 +1,8 @@
 
-import { getKeyPair, generateCertificate, generateCSR, genServerCSR, setupPkiFs, dumpPkiArtifact, genCertificate } from './lib/pkiutils.js'
-import path from 'path';
+import { generateKeyPair, generateCertificate, generateCSR, setupPkiFs, dumpPkiArtifact, genCertificate } from './lib/pkiutils.js'
 import config  from 'config'
 
-import { CertificateAttributes, CsrAttributes } from './lib/commons.js';
+import { CertificateAttributes, CertificateInput, CsrAttributes } from './lib/commons.js';
 import { loadStorage } from './lib/storage.js';
 
 const storage = await loadStorage("fs")
@@ -11,7 +10,7 @@ storage.init({basePath: "/home/development/toolbox/pki/pki"})
        .registerStorageLocation("ca")
        .registerStorageLocation("servers")
        
-const { privateKey, publicKey } = await getKeyPair()
+const { privateKey, publicKey } = await generateKeyPair()
 
 await Promise.all(
     [storage.storePkiResource("ca",privateKey,"jabbadev-ca","key","private"),
@@ -20,13 +19,20 @@ await Promise.all(
 
 const subject = new CertificateAttributes(config.get('ca.subject'))
 const issuer = subject
-const caCert = generateCertificate(subject,issuer,10,"01",privateKey,publicKey)
+
+const certIn = new CertificateInput()
+.publicKey(publicKey)
+.privateKey(privateKey)
+.validityYears(10)
+.serialNumber("01")
+.subject(subject)
+.issuer(subject)
+
+const caCert = await generateCertificate(certIn.options())
 
 await storage.storePkiResource("ca",caCert,"jabbadev-ca","cert")
 
-console.log('dumped')
-
-getKeyPair().then( async keys=>{
+generateKeyPair().then( async keys=>{
     const { privateKey, publicKey } = keys
     await Promise.all(
         [storage.storePkiResource("servers",privateKey,"home-domotic-server","key","private"),
@@ -34,10 +40,11 @@ getKeyPair().then( async keys=>{
     )
 
     const subject = new CertificateAttributes(config.get('server.subject'))
-    const csrAttr = new CsrAttributes(config.get("server.attributes"))
-    const csr = generateCSR(subject,csrAttr, privateKey, publicKey )
+    const attributes = new CsrAttributes(config.get("server.attributes"))
+
+
+    const csr = await generateCSR({ subject, attributes, privateKey, publicKey })
     await storage.storePkiResource("servers",csr,"home-domotic-server","csr")
-    console.log(csr)
 })
 
 

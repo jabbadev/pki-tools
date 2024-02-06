@@ -1,5 +1,5 @@
 import { describe, expect, test, it } from '@jest/globals'
-import { CertificateAttributes, CsrAttributes } from "../lib/commons"
+import { CertificateAttributes, CertificateInput, CsrAttributes } from "../lib/commons"
 
 describe("test CertificateAttributes type",()=>{
     it("CertificateAttributes void instatiation",()=>{
@@ -52,4 +52,15 @@ describe("test CertificateAttributes type",()=>{
 
         })
     })
+
+    describe("test CertificateInput type",()=>{
+        it("CertificateInput void instatiation",()=>{
+            const certIn = new CertificateInput()
+            expect(certIn.subject()).toBeUndefined()
+            expect(certIn.options()).toEqual({})
+            certIn.subject(new CertificateInput({}))
+            expect( certIn.options()['subject'] ).toBeInstanceOf(CertificateInput)
+        })
+    })
+
 })
