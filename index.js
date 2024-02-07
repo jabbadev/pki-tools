@@ -1,8 +1,8 @@
 
-import { generateKeyPair, generateCertificate, generateCSR, setupPkiFs, dumpPkiArtifact, genCertificate } from './lib/pkiutils.js'
+import { generateKeyPair, generateCertificate, generateCSR, generateCertificateFromCsr, setupPkiFs, dumpPkiArtifact, genCertificate } from './lib/pkiutils.js'
 import config  from 'config'
 
-import { CertificateAttributes, CertificateInput, CsrAttributes } from './lib/commons.js';
+import { CertificateAttributes, CertificateInput, CsrAttributes, certificateInputHandler } from './lib/commons.js';
 import { loadStorage } from './lib/storage.js';
 
 const storage = await loadStorage("fs")
@@ -28,7 +28,8 @@ const certIn = new CertificateInput()
 .subject(subject)
 .issuer(subject)
 
-const caCert = await generateCertificate(certIn.options())
+//const caCert = await generateCertificate(certIn.options())
+const caCert = await generateCertificate(certificateInputHandler(certIn))
 
 await storage.storePkiResource("ca",caCert,"jabbadev-ca","cert")
 
@@ -45,6 +46,13 @@ generateKeyPair().then( async keys=>{
 
     const csr = await generateCSR({ subject, attributes, privateKey, publicKey })
     await storage.storePkiResource("servers",csr,"home-domotic-server","csr")
+
+    const serverCert = await generateCertificateFromCsr({
+        csrPem: csr, extensions: null, validityYears: 10, serialNumber: "02", caCertificatePem: caCert , caPrivateKeyPem: privateKey
+    })
+
+    await storage.storePkiResource("servers",serverCert,"home-domotic-server","cert")
+
 })
 
 
