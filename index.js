@@ -1,5 +1,5 @@
 
-import { generateKeyPair, generateCertificate, generateCSR, generateCertificateFromCsr, setupPkiFs, dumpPkiArtifact, genCertificate } from './lib/pkiutils.js'
+import { generateKeyPair, generateCertificate, generateCSR, generateCertificateFromCsr } from './lib/pkiutils.js'
 import config  from 'config'
 
 import { CertificateAttributes, CertificateInput, CsrAttributes, certificateInputHandler } from './lib/commons.js';
