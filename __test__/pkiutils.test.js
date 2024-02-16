@@ -1,47 +1,38 @@
 import { describe, expect, beforeAll, it } from '@jest/globals'
 import { loadStorage } from '../lib/storage'
-import { generateKeyPair, generateCertificate, genForgeKeyPairPEM } from '../lib/pkiutils'
+import { generateCertificate, genForgeKeyPairPEM, generateRsaPemKeys, getSubjectKeyIdentifier, generateKeystorePKCS12 } from '../lib/pkiutils'
 import { CertificateInput, certificateInputHandler, CertificateAttributes } from '../lib/commons'
 import config  from 'config'
 
 let pkiMapStorage, caCertReady, serverCertReady, clientCertReady
 
-const setupPki = async () => {
-    //const {  privateKey, publicKey } = await genForgeKeyPairPEM()
-    const caKeys = await generateKeyPair()
-    const caCert = await generateCertificate(certificateInputHandler(
-        new CertificateInput()
-            .publicKey(caKeys.publicKey)
-            .privateKey(caKeys.privateKey)
-            .validityYears(10)
-            .serialNumber("01")
-            .subject(new CertificateAttributes(config.get('ca.subject')))
-            .issuer(new CertificateAttributes(config.get('ca.subject'))))
-    )
+describe("generate RSA PEM keys",()=>{
 
-    expect(caCert.split("\r\n")[0]).toEqual('-----BEGIN CERTIFICATE-----')
+    it("generate keys", () => {
+        return generateRsaPemKeys().then( keys => {
+            expect(keys.privateKey).toMatch('-----BEGIN PRIVATE KEY-----')
+        })
+    })
 
-    const serverKeys = await generateKeyPair()
-    const serverCsr = await generateCSR({ subject: new CertificateAttributes(config.get('server.subject')) ,
-                                          attributes: config.get("server.attributes"),
-                                          privateKey: serverKeys.privateKey, publicKey: serverKeys.publicKey })
+    it("generate 1024 keys",async () => {
+        await expect(generateRsaPemKeys({bits: 1024 })).resolves.toBeInstanceOf(Object)
+    })
 
-    expect(serverCsr.split("\r\n")[0]).toEqual('-----BEGIN CERTIFICATE-----')
-    
+    it("generate pkcs12 keystore",async ()=>{
+        const keys = await generateRsaPemKeys({bits: 512 })
+        const caCert = await generateCertificate(certificateInputHandler(
+            new CertificateInput()
+                .extensions([{ name: "basicConstraints", cA: true, critical: true },
+                             { name: 'subjectKeyIdentifier', subjectKeyIdentifier: getSubjectKeyIdentifier(keys.publicKey) } ])
+                .publicKey(keys.publicKey)
+                .privateKey(keys.privateKey)
+                .validityYears(10)
+                .serialNumber("01")
+                .subject(new CertificateAttributes(config.get('ca.subject')))
+                .issuer(new CertificateAttributes(config.get('ca.subject'))))
+        )
+        expect(caCert).toMatch('-----BEGIN CERTIFICATE-----')
 
-    return Promise.resolve(serverCsr.split("\r\n")[0])
-}
-
-beforeAll(async () => {
-    pkiMapStorage = await loadStorage("map")
-    pkiMapStorage.init()
-        .registerStorageLocation("ca")
-        .registerStorageLocation("servers")
-        .registerStorageLocation("clients")
-})
-
-describe("generate pki certificates",()=>{
-    it("generate ca scertificate", async ()=>{
-        await expect(setupPki()).resolves.toEqual('-----BEGIN CERTIFICATE-----')
+        const keyStore = generateKeystorePKCS12(keys.privateKey,caCert,"password")
     })
 })

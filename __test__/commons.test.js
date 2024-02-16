@@ -1,5 +1,5 @@
 import { describe, expect, test, it } from '@jest/globals'
-import { CertificateAttributes, CertificateInput, CsrAttributes, certificateInputHandler } from "../lib/commons"
+import { CertificateAttributes, CertificateInput, CsrAttributes, certificateInputHandler, CertificateSubject, CertificateIssuer } from "../lib/commons"
 
 describe("test CertificateAttributes type",()=>{
     it("CertificateAttributes void instatiation",()=>{
@@ -121,6 +121,86 @@ describe("test CertificateAttributes type",()=>{
             expect(()=>{
                 certificateInputHandler({},{},null,1,10)
             }).toThrow("serialNumber must be a string")
+        })
+    })
+
+    describe("test certificate subject object",()=>{
+        it("basic instanziation", () => {
+            const subject = new CertificateSubject()
+
+            subject.setCommonName("ca-root.mynet.it")
+                .setCountryName("IT")
+                .setStateOrProvinceName("Italy")
+                .setLocalityName("Bergamo")
+                .setOrganizationName("MyNET")
+                .setOrganizationalUnitName("MyNET Root CA server")
+                .setEmailAddress("ca-root@mynet.it")
+
+            expect(subject.commonName()).toEqual("ca-root.mynet.it")
+        })
+
+        it("basic instanziation using alias",()=>{
+            const subject = new CertificateSubject()
+            subject.setCN("Root CA")
+            .setC("IT")
+            .setST("Italy")
+            .setL("Bergamo")
+            .setO("MyNET")
+            .setOU("MyNET Root CA server")
+            .setE("ca-root@mynet.it")
+
+            expect(subject).toBeInstanceOf(CertificateSubject)
+        })
+
+        it("instanziation by string with alias like -subj openssl",()=>{
+            const subject = new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it")
+            expect(subject.E()).toEqual("ca-root@mynet.it")
+        })
+
+        it("instanziation by string with alias and attribute like -subj openssl",()=>{
+            const subject = new CertificateSubject("/commonName=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it")
+            expect(subject.CN()).toEqual("Root CA")
+            expect(subject.commonName()).toEqual("Root CA")
+            expect(subject.asFogeInput()).toHaveLength(7)
+        })
+
+        it("instanziation in error with unsupported attribute",()=>{
+            expect( ()=> {
+                new CertificateSubject("/common=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it")
+            }).toThrow(/unsupported attribute/)
+        })
+
+        it("instanziation by object ",()=>{
+            const subject = new CertificateSubject({
+                commonName: "Root CA",
+                C: "IT",
+                ST: "Italy",
+                L: "Bergamo",
+                O: "MyNET",
+                OU: "MyNET Root CA server",
+                E: "ca-root@mynet.it"}
+            )
+            expect(subject.CN()).toEqual("Root CA")
+            expect(subject.commonName()).toEqual("Root CA")
+            expect(subject.emailAddress()).toEqual("ca-root@mynet.it")
+        })
+
+    })
+
+    describe("test certificate issuer object",()=>{
+        it("basic instanziation of an issuer object", () => {
+            const issuer = new CertificateIssuer()
+            .setCN("Root CA")
+            .setC("IT")
+            .setST("Italy")
+            .setL("Bergamo")
+            .setO("MyNET")
+            .setOU("MyNET Root CA server")
+            .setE("ca-root@mynet.it")
+
+            expect(issuer).toBeInstanceOf(CertificateIssuer)
+            expect(issuer.CN()).toEqual("Root CA")
+
         })
     })
 

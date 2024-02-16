@@ -1,7 +1,7 @@
 {
-  "name": "pki",
+  "name": "pki-tools",
   "version": "1.0.0",
-  "description": "Generate Personal Public Key Infrastructure",
+  "description": "Simple and practical tools to handle PKI and certificate.",
   "main": "index.js",
   "type": "module",
   "scripts": {
