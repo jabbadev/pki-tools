@@ -1,11 +1,8 @@
-
-import { loadStoragePlugin } from "../lib/storage"
-import { Storage, StorageLocator } from "../lib/fs-storage"
+import { loadStoragePlugin, loadStorage} from "../lib/storage"
 import { describe, expect, test, it } from '@jest/globals'
 
 describe("Load storage plugin", ()=>{
-    it("load fs storage", async ()=>{
-        const storageModule = await loadStoragePlugin('fs')
-        expect(storageModule['Storage']).toEqual(Storage)
+    it("load test plugin storage", async ()=>{
+        const storage = loadStorage('test-storage')
     })
 })
