@@ -1,5 +1,5 @@
 import { describe, expect, test, it } from '@jest/globals'
-import { CertificateAttributes, CertificateInput, CsrAttributes, certificateInputHandler, CertificateSubject, CertificateIssuer } from "../lib/commons"
+import { CertificateAttributes, CertificateInput, CsrAttributes, certificateInputHandler, CertificateSubject, CertificateIssuer, CertificateIn } from "../lib/commons"
 
 describe("test CertificateAttributes type",()=>{
     it("CertificateAttributes void instatiation",()=>{
@@ -200,6 +200,31 @@ describe("test CertificateAttributes type",()=>{
 
             expect(issuer).toBeInstanceOf(CertificateIssuer)
             expect(issuer.CN()).toEqual("Root CA")
+
+        })
+    })
+
+    describe("test Certificate Input class",() => {
+        it("basic object instanziation", () => {
+            const certIN = new CertificateIn()
+            .setSubject(new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"))
+            .setIssuer(new CertificateIssuer("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"))
+            .setNotBefore(new Date(2014, 8, 1, 10, 19, 50)) // 01/09/2014 10:19:50
+            .setValidityDelta({
+                years: 2,
+                months: 1,
+            })
+
+            expect(certIN.subject().CN()).toEqual("Root CA")
+            expect(certIN.notAfter()).toBeInstanceOf(Date)
+            expect(certIN.notAfter().getFullYear()).toEqual(2016)
+            expect(certIN.notAfter().getMonth()).toEqual(9)
+            expect(certIN.issuer().E()).toEqual("ca-root@mynet.it")
+            expect(certIN instanceof CertificateIn ).toBeTruthy()
+            const objIN = certIN.toObject()
+            expect(objIN).toBeInstanceOf(Object)
+            expect(objIN).toHaveProperty("notBefore",new Date(2014, 8, 1, 10, 19, 50))
+            expect(objIN).toHaveProperty("notAfter",new Date(2016, 9, 1, 10, 19, 50))
 
         })
     })

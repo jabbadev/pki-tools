@@ -1,7 +1,7 @@
 import { describe, expect, beforeAll, it } from '@jest/globals'
 import { loadStorage } from '../lib/storage'
-import { generateCertificate, genForgeKeyPairPEM, generateRsaPemKeys, getSubjectKeyIdentifier, generateKeystorePKCS12 } from '../lib/pkiutils'
-import { CertificateInput, certificateInputHandler, CertificateAttributes } from '../lib/commons'
+import { generateCertificate, genForgeKeyPairPEM, generateRsaPemKeys, getSubjectKeyIdentifier, generateKeystorePKCS12, generateCaRootCertificate } from '../lib/pkiutils'
+import { CertificateInput, certificateInputHandler, CertificateAttributes, CertificateSubject } from '../lib/commons'
 import config  from 'config'
 
 let pkiMapStorage, caCertReady, serverCertReady, clientCertReady
@@ -34,5 +34,16 @@ describe("generate RSA PEM keys",()=>{
         expect(caCert).toMatch('-----BEGIN CERTIFICATE-----')
 
         const keyStore = generateKeystorePKCS12(keys.privateKey,caCert,"password")
+    })
+
+    it("generate ca root certificate",()=>{
+        const caRootCert = generateCaRootCertificate(
+            new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"),
+            "01",
+            { keySize: 512 }
+        ).then((certData)=>{
+            expect(certData.certificate).toContain("BEGIN CERTIFICATE")
+        })
+
     })
 })
