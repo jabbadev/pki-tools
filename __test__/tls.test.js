@@ -1,31 +1,71 @@
-import { describe, expect, test, it, beforeAll } from '@jest/globals'
-import { generateRsaPemKeys, generateCertificate } from '../lib/pkiutils.js'
-import { certificateInputHandler, CertificateSubject } from '../lib/commons.js'
+import { describe, expect, test, it, beforeAll, afterAll } from '@jest/globals'
+import { generateCaRootCertificate, generatePkiCertificate } from '../lib/pkiutils.js'
+import { CertificateSubject } from '../lib/commons.js'
+import tls from 'node:tls'
 
-const initializeTls = () => new Promise(async (resolve,reject) => {
-    const keys = await generateRsaPemKeys({bits: 512 })
-    /*const caCert = await generateCertificate(certificateInputHandler(
-        new CertificateInput()
-            .extensions([{ 
-              name: "basicConstraints", 
-              cA: true, 
-              critical: true 
-            },{
-              name: 'subjectKeyIdentifier',
-              subjectKeyIdentifier: spki
-            }])
-            .publicKey(caKeys.publicKey)
-            .privateKey(caKeys.privateKey)
-            .validityYears(10)
-            .serialNumber("01")
-            .subject(new CertificateAttributes(config.get('ca.subject')))
-            .issuer(new CertificateAttributes(config.get('ca.subject'))))
+const caRoot = await generateCaRootCertificate(
+    new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"),
+    "01",
+    { keySize: 2048 }
 )
-        new CertificateSubject("/commonName=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it")
-    ))
-    console.log(caCert)*/
 
-    resolve()
+const serverCert = await generatePkiCertificate(
+    new CertificateSubject("/CN=server.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Web Server/E=server@mynet.it"),
+    "02",caRoot.certificate.data,caRoot.privateKey,{ keySize: 512 }
+)
+
+const clientCert = await generatePkiCertificate(
+    new CertificateSubject("/CN=client.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET TLS Client/E=client@mynet.it"),
+    "03",caRoot.certificate.data,caRoot.privateKey,{ keySize: 512 }
+)
+
+let tlsServer
+const initializeTls = () => new Promise(async (resolve,reject) => {
+    const options = {
+        key: serverCert.privateKey,
+        cert: serverCert.certificate.data ,
+        requestCert: true,
+        ca: [ caRoot.certificate.data ],
+    };
+
+    tlsServer = tls.createServer(options, (socket) => {
+        expect(socket.authorized).toBeTruthy()
+        socket.write('welcome!\n');
+        socket.setEncoding('utf8');
+        socket.pipe(socket);
+    })
+
+    tlsServer.listen(8000, () => {
+        console.log('server bound');
+        resolve()
+    })    
+})
+
+const execTlsRequest = () => new Promise((resolve,reject)=>{
+
+    const options = {
+        key: clientCert.privateKey,
+        cert: clientCert.certificate.data,
+        ca: [ caRoot.certificate.data ],
+        checkServerIdentity: () => { return null; },
+      }
+      
+      const socket = tls.connect(8000, options, () => {
+        // Is autorized
+        expect(socket.authorized).toBeTruthy()
+
+        process.stdin.pipe(socket)
+        process.stdin.resume()
+      })
+
+      socket.setEncoding('utf8');
+      socket.on('data', (data) => {
+        resolve(data)
+        socket.end()
+      })
+      socket.on('end', () => {
+        expect(true).toBeTruthy()
+      })
 })
 
 describe("test a tls server with PKI certificate",()=>{
@@ -34,8 +74,12 @@ describe("test a tls server with PKI certificate",()=>{
         return initializeTls()
     })
 
-    it("exec client request",()=>{
-        expect(true).toBeTruthy()
+    it("exec client request",async ()=>{
+        await expect(execTlsRequest()).resolves.toEqual('welcome!\n')
+    })
+
+    afterAll(()=>{
+        tlsServer.close()
     })
 })
 

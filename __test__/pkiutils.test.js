@@ -1,10 +1,7 @@
 import { describe, expect, beforeAll, it } from '@jest/globals'
-import { loadStorage } from '../lib/storage'
-import { generateCertificate, genForgeKeyPairPEM, generateRsaPemKeys, getSubjectKeyIdentifier, generateKeystorePKCS12, generateCaRootCertificate } from '../lib/pkiutils'
+import { generateCertificate, generateRsaPemKeys, getSubjectKeyIdentifier, generateKeystorePKCS12, generateCaRootCertificate, generatePkiCertificate } from '../lib/pkiutils'
 import { CertificateInput, certificateInputHandler, CertificateAttributes, CertificateSubject } from '../lib/commons'
 import config  from 'config'
-
-let pkiMapStorage, caCertReady, serverCertReady, clientCertReady
 
 describe("generate RSA PEM keys",()=>{
 
@@ -36,14 +33,44 @@ describe("generate RSA PEM keys",()=>{
         const keyStore = generateKeystorePKCS12(keys.privateKey,caCert,"password")
     })
 
-    it("generate ca root certificate",()=>{
-        const caRootCert = generateCaRootCertificate(
+    it("generate ca root certificate",async ()=>{
+        const caRoot = await generateCaRootCertificate(
             new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"),
             "01",
             { keySize: 512 }
-        ).then((certData)=>{
-            expect(certData.certificate).toContain("BEGIN CERTIFICATE")
-        })
+        )
+            
+        expect(caRoot.certificate.data).toContain("BEGIN CERTIFICATE")
+    })
+
+    it("generate pki certificate", async()=>{
+        const caRoot = await generateCaRootCertificate(
+            new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"),
+            "01",
+            { keySize: 512 }
+        )
+    
+        const serverCert = await generatePkiCertificate(
+                new CertificateSubject("/CN=server.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Web Server/E=server@mynet.it"),
+                "02",caRoot.certificate.data,caRoot.privateKey
+            )
+
+        expect(serverCert.csr).toContain("BEGIN CERTIFICATE REQUEST")
+        expect(serverCert.certificate.type).toEqual("pem")
+        expect(serverCert.certificate.data).toContain("BEGIN CERTIFICATE")
+
+        await expect( generatePkiCertificate(
+            new CertificateSubject("/CN=server.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Web Server/E=server@mynet.it"),
+            "02",caRoot.certificate.data,caRoot.privateKey,{ certificateOutput: { type: "pkcs12" }}
+        ) ).rejects.toThrow('certificate output [pfx|pkcs12] need a password')
+
+        const pfxServerCert = await generatePkiCertificate(
+            new CertificateSubject("/CN=server.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Web Server/E=server@mynet.it"),
+            "02",caRoot.certificate.data,caRoot.privateKey,{ certificateOutput: { type: "pkcs12", password: "test" }}
+        )
+
+        expect(pfxServerCert.certificate.type).toEqual("pkcs12")
+        expect(pfxServerCert.certificate.data).toBeInstanceOf(Buffer)
 
     })
 })
