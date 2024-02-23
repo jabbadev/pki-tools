@@ -1,6 +1,6 @@
 import { describe, expect, beforeAll, it } from '@jest/globals'
 import { generateCertificate, generateRsaPemKeys, getSubjectKeyIdentifier, generateKeystorePKCS12, generateCaRootCertificate, generatePkiCertificate } from '../lib/pkiutils'
-import { CertificateInput, certificateInputHandler, CertificateAttributes, CertificateSubject } from '../lib/commons'
+import { CertificateInput, certificateInputHandler, CertificateSubject } from '../lib/commons'
 import config  from 'config'
 
 describe("generate RSA PEM keys",()=>{
@@ -25,8 +25,8 @@ describe("generate RSA PEM keys",()=>{
                 .privateKey(keys.privateKey)
                 .validityYears(10)
                 .serialNumber("01")
-                .subject(new CertificateAttributes(config.get('ca.subject')))
-                .issuer(new CertificateAttributes(config.get('ca.subject'))))
+                .subject(new CertificateSubject(config.get('ca.subject')))
+                .issuer(new CertificateInput(config.get('ca.subject'))))
         )
         expect(caCert).toMatch('-----BEGIN CERTIFICATE-----')
 

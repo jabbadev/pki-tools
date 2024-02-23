@@ -19,7 +19,14 @@ const clientCert = await generatePkiCertificate(
     "03",caRoot.certificate.data,caRoot.privateKey,{ keySize: 512 }
 )
 
-let tlsServer
+const getRandomPort = (min, max) => {
+    const minCeiled = Math.ceil(min)
+    const maxFloored = Math.floor(max)
+    return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled)
+}
+
+const MAX_RETRY = 10
+let tlsServer, tlsPort = getRandomPort(7000,9000), retry = MAX_RETRY, timer = null, tslStatus = "tls server unavailable"
 const initializeTls = () => new Promise(async (resolve,reject) => {
     const options = {
         key: serverCert.privateKey,
@@ -34,11 +41,26 @@ const initializeTls = () => new Promise(async (resolve,reject) => {
         socket.setEncoding('utf8');
         socket.pipe(socket);
     })
-
-    tlsServer.listen(8000, () => {
-        console.log('server bound');
+ 
+    tlsServer.listen(tlsPort, () => {
+        tslStatus = "tls server ready"
         resolve()
-    })    
+    })
+
+    tlsServer.on('error',(error)=>{
+        if ( error.code === 'EADDRINUSE'){
+            retry -= 1
+            if ( !retry ){
+                //tlsServer.close()
+                tslStatus = `${tslStatus} - max retry [${MAX_RETRY}] to find free listening port`
+                reject("all port in use")
+            }
+            else {
+                tlsPort = getRandomPort(7000,9000)
+                tlsServer.listen(tlsPort)
+            }
+        }
+    })
 })
 
 const execTlsRequest = () => new Promise((resolve,reject)=>{
@@ -50,7 +72,7 @@ const execTlsRequest = () => new Promise((resolve,reject)=>{
         checkServerIdentity: () => { return null; },
       }
       
-      const socket = tls.connect(8000, options, () => {
+      const socket = tls.connect(tlsPort, options, () => {
         // Is autorized
         expect(socket.authorized).toBeTruthy()
 
@@ -79,6 +101,7 @@ describe("test a tls server with PKI certificate",()=>{
     })
 
     afterAll(()=>{
+        expect(tslStatus).toEqual("tls server ready")
         tlsServer.close()
     })
 })
