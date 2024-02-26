@@ -130,19 +130,45 @@ const TLSServer = (tlsOptions) => new Promise((resolve,reject)=>{
     catch(error) { reject(error) }
 })
 
-const MAX_RETRY = 10
-let /*tlsServer, tlsPort = getRandomPort(7000,9000),*/ retry = MAX_RETRY, timer = null, tslStatus = "tls server unavailable"
+let tslStatus = "tls server unavailable"
 
-const execTlsRequest = () => new Promise((resolve,reject)=>{
+const execTlsRequest = (options) => new Promise((resolve,reject)=>{
+    const tlsconf = {
+        ca: [ options.pemCaCert ]
+    }, tlsPort = options.tlsPort
 
-    const options = {
-        key: clientCert.privateKey,
-        cert: clientCert.certificate.data,
-        ca: [ caRoot.certificate.data ],
-        checkServerIdentity: () => { return null; },
-      }
+    if ( options.pfx ) {
+        tlsconf.pfx = options.pfx
+        if ( options.passphrase ) {
+            tlsconf.passphrase = options.passphrase
+        } else {
+            throw new Error("pfx need passphrase")
+        }
+    }
+    else {
+        
+        if ( options.key ){
+            tlsconf.key = options.key
+        }
+        else {
+            throw new Error("private key undefined")
+        }
+
+        if ( options.cert ){
+            tlsconf.cert  = options.cert
+        }
+        else {
+            throw new Error("certificate undefined")
+        }
+        
+        if ( options.passphrase ) {
+            tlsconf.passphrase = options.passphrase
+        }
+
+        tlsconf.checkServerIdentity = () => { return null }
+    }
       
-      const socket = tls.connect(tlsPort, options, () => {
+      const socket = tls.connect(tlsPort, tlsconf, () => {
         // Is autorized
         expect(socket.authorized).toBeTruthy()
 
@@ -162,13 +188,11 @@ const execTlsRequest = () => new Promise((resolve,reject)=>{
 
 describe("test a tls server with PKI certificate",()=>{
 
-    /*
-    beforeAll(() => {
-        return initializeTls()
-    })*/
-
     it("exec client request",async ()=>{
-        await expect(execTlsRequest()).resolves.toEqual('welcome!\n')
+        await expect(execTlsRequest({ tlsPort: tlsPort,
+            key: clientCert.privateKey,
+            cert: clientCert.certificate.data,
+            pemCaCert: caRoot.certificate.data })).resolves.toEqual('welcome!\n')
     })
 
     afterAll(()=>{
