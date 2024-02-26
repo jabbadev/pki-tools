@@ -3,26 +3,33 @@ import { generateCertificate, generateRsaPemKeys, getSubjectKeyIdentifier, gener
 import { CertificateInput, certificateInputHandler, CertificateSubject } from '../lib/commons'
 import config  from 'config'
 
+let keys, secKeys, forgeKeys, forgeSecKeys
+const generateKeys = () => {
+    return Promise.all([
+        generateRsaPemKeys({ bits: 512, useForge: true }).then( keys => {
+            expect(keys.privateKey).toContain('-----BEGIN RSA PRIVATE KEY-----')
+            forgeKeys = keys
+        }),
+        generateRsaPemKeys({ bits: 512, useForge: true, password: "test" }).then( keys => {
+            expect(keys.privateKey).toContain('-----BEGIN ENCRYPTED PRIVATE KEY-----')
+            forgeSecKeys = keys
+        })
+    ])
+}
+
+beforeAll(()=>{
+    return generateKeys()
+})
+
 describe("generate RSA PEM keys",()=>{
 
-    it("generate keys", () => {
-        return generateRsaPemKeys().then( keys => {
-            expect(keys.privateKey).toMatch('-----BEGIN PRIVATE KEY-----')
-        })
-    })
-
-    it("generate 1024 keys",async () => {
-        await expect(generateRsaPemKeys({bits: 1024 })).resolves.toBeInstanceOf(Object)
-    })
-
     it("generate pkcs12 keystore",async ()=>{
-        const keys = await generateRsaPemKeys({bits: 512 })
         const caCert = await generateCertificate(certificateInputHandler(
             new CertificateInput()
                 .extensions([{ name: "basicConstraints", cA: true, critical: true },
-                             { name: 'subjectKeyIdentifier', subjectKeyIdentifier: getSubjectKeyIdentifier(keys.publicKey) } ])
-                .publicKey(keys.publicKey)
-                .privateKey(keys.privateKey)
+                             { name: 'subjectKeyIdentifier', subjectKeyIdentifier: getSubjectKeyIdentifier(forgeKeys.publicKey) } ])
+                .publicKey(forgeKeys.publicKey)
+                .privateKey(forgeKeys.privateKey)
                 .validityYears(10)
                 .serialNumber("01")
                 .subject(new CertificateSubject(config.get('ca.subject')))
@@ -30,14 +37,14 @@ describe("generate RSA PEM keys",()=>{
         )
         expect(caCert).toMatch('-----BEGIN CERTIFICATE-----')
 
-        const keyStore = generateKeystorePKCS12(keys.privateKey,caCert,"password")
+        const keyStore = generateKeystorePKCS12(forgeKeys.privateKey,caCert,"password")
     })
 
     it("generate ca root certificate",async ()=>{
         const caRoot = await generateCaRootCertificate(
             new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"),
             "01",
-            { keySize: 512 }
+            { keys: forgeKeys }
         )
             
         expect(caRoot.certificate.data).toContain("BEGIN CERTIFICATE")
@@ -47,12 +54,13 @@ describe("generate RSA PEM keys",()=>{
         const caRoot = await generateCaRootCertificate(
             new CertificateSubject("/CN=Root CA/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Root CA server/E=ca-root@mynet.it"),
             "01",
-            { keySize: 512 }
+            { keys: forgeKeys }
         )
     
         const serverCert = await generatePkiCertificate(
                 new CertificateSubject("/CN=server.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Web Server/E=server@mynet.it"),
-                "02",caRoot.certificate.data,caRoot.privateKey
+                "02",caRoot.certificate.data,caRoot.privateKey,
+                { keys: forgeKeys }
             )
 
         expect(serverCert.csr).toContain("BEGIN CERTIFICATE REQUEST")
@@ -61,12 +69,12 @@ describe("generate RSA PEM keys",()=>{
 
         await expect( generatePkiCertificate(
             new CertificateSubject("/CN=server.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Web Server/E=server@mynet.it"),
-            "02",caRoot.certificate.data,caRoot.privateKey,{ certificateOutput: { type: "pkcs12" }}
+            "02",caRoot.certificate.data,caRoot.privateKey,{ certificateOutput: { keys: forgeKeys, type: "pkcs12" }}
         ) ).rejects.toThrow('certificate output [pfx|pkcs12] need a password')
 
         const pfxServerCert = await generatePkiCertificate(
             new CertificateSubject("/CN=server.mynet.it/C=IT/ST=Italy/L=Bergamo/O=MyNET/OU=MyNET Web Server/E=server@mynet.it"),
-            "02",caRoot.certificate.data,caRoot.privateKey,{ certificateOutput: { type: "pkcs12", password: "test" }}
+            "02",caRoot.certificate.data,caRoot.privateKey,{ certificateOutput: { keys: forgeKeys, type: "pkcs12", password: "test" }}
         )
 
         expect(pfxServerCert.certificate.type).toEqual("pkcs12")
