@@ -1,0 +1,32 @@
+ca:
+  subject:
+    commonName: ca.mynet.it
+    countryName: IT
+    stateOrProvinceName: Italy
+    localityName: Bergamo
+    organizationName: mynet
+    organizationalUnitName: mynet ca
+    emailAddress: ca@mynet.com
+server:
+  subject:
+    commonName: server.mynet.it
+    countryName: IT
+    stateOrProvinceName: Italy
+    localityName: Bergamo
+    organizationName: mynet
+    organizationalUnitName: mynet server
+    emailAddress: server@mynet.com
+  attributes:
+    unstructuredName: "Home Domotic Server"
+client:
+  subject:
+    commonName: client.mynet.it
+    countryName: IT
+    stateOrProvinceName: Italy
+    localityName: Bergamo
+    organizationName: mynet
+    organizationalUnitName: mynet client
+    emailAddress: client@mynet.com
+
+
+    
