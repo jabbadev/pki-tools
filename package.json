@@ -1,6 +1,6 @@
 {
   "name": "pki-tools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Simple and practical tools to handle PKI and certificate.",
   "main": "index.js",
   "type": "module",
